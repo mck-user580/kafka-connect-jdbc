@@ -33,6 +33,7 @@ import java.util.Collection;
 import io.confluent.connect.jdbc.dialect.DatabaseDialectProvider.SubprotocolBasedProvider;
 import io.confluent.connect.jdbc.sink.metadata.SinkRecordField;
 import io.confluent.connect.jdbc.source.ColumnMapping;
+import io.confluent.connect.jdbc.source.JdbcSourceConnectorConfig;
 import io.confluent.connect.jdbc.util.ColumnDefinition;
 import io.confluent.connect.jdbc.util.ColumnId;
 import io.confluent.connect.jdbc.util.ExpressionBuilder;
@@ -70,6 +71,14 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
   public PostgreSqlDatabaseDialect(AbstractConfig config) {
     super(config, new IdentifierRules(".", "\"", "\""));
   }
+  
+  @Override
+  public Connection getConnection() throws SQLException {
+    Connection connection = super.getConnection();
+    log.trace("Set connection AutoCommit=false");
+    connection.setAutoCommit(false);
+    return connection; 
+  }
 
   /**
    * Perform any operations on a {@link PreparedStatement} before it is used. This is called from
@@ -85,8 +94,12 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
    */
   @Override
   protected void initializePreparedStatement(PreparedStatement stmt) throws SQLException {
-    log.trace("Initializing PreparedStatement fetch direction to FETCH_FORWARD for '{}'", stmt);
+    
+    int fetchSize = this.config.getInt(JdbcSourceConnectorConfig.BATCH_MAX_ROWS_CONFIG);
+    log.trace("Init PreparedStatement fetch direction to FETCH_FORWARD and FETCH_SIZE={} for '{}'", 
+        fetchSize, stmt);
     stmt.setFetchDirection(ResultSet.FETCH_FORWARD);
+    stmt.setFetchSize(fetchSize);
   }
 
 
